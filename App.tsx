@@ -1,5 +1,5 @@
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useStore } from './store';
 import { ViewState, Client, Equipment, Budget } from './types';
 import { professionalizeDescription } from './services/geminiService';
@@ -13,6 +13,8 @@ const Icons = {
   Plus: () => <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 4v16m8-8H4" /></svg>,
   Check: () => <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7" /></svg>,
   Print: () => <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z" /></svg>,
+  Logout: () => <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" /></svg>,
+  Lock: () => <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" /></svg>,
 };
 
 const BudgetPrintView: React.FC<{ budget: Budget; client: Client; equipment: Equipment }> = ({ budget, client, equipment }) => {
@@ -83,11 +85,14 @@ const BudgetPrintView: React.FC<{ budget: Budget; client: Client; equipment: Equ
 
 export default function App() {
   const { clients, equipments, budgets, addClient, addEquipment, addBudget, updateBudgetStatus } = useStore();
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [loginForm, setLoginForm] = useState({ username: '', password: '' });
+  const [loginError, setLoginError] = useState('');
+  
   const [currentView, setCurrentView] = useState<ViewState>('dashboard');
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
   const [printingBudget, setPrintingBudget] = useState<Budget | null>(null);
   
-  // New Budget Form State
   const [newBudget, setNewBudget] = useState({
     clientId: '',
     equipmentId: '',
@@ -95,6 +100,28 @@ export default function App() {
     value: 0
   });
   const [isProfessionalizing, setIsProfessionalizing] = useState(false);
+
+  useEffect(() => {
+    const session = sessionStorage.getItem('assistencia_session');
+    if (session === 'true') setIsAuthenticated(true);
+  }, []);
+
+  const handleLogin = (e: React.FormEvent) => {
+    e.preventDefault();
+    // Autenticação mockada para demonstração
+    if (loginForm.username === 'admin' && loginForm.password === 'admin123') {
+      setIsAuthenticated(true);
+      sessionStorage.setItem('assistencia_session', 'true');
+      setLoginError('');
+    } else {
+      setLoginError('Credenciais inválidas. Tente admin / admin123');
+    }
+  };
+
+  const handleLogout = () => {
+    setIsAuthenticated(false);
+    sessionStorage.removeItem('assistencia_session');
+  };
 
   const handleCreateBudget = async () => {
     if (!newBudget.clientId || !newBudget.equipmentId || !newBudget.description) {
@@ -129,12 +156,69 @@ export default function App() {
     }, 500);
   };
 
+  if (!isAuthenticated) {
+    return (
+      <div className="min-h-screen bg-slate-900 flex items-center justify-center p-4">
+        <div className="bg-white w-full max-w-md rounded-2xl shadow-2xl overflow-hidden">
+          <div className="bg-blue-600 p-8 text-white text-center">
+            <h1 className="text-3xl font-bold tracking-tight">Assistência<span className="text-blue-200">Pro</span></h1>
+            <p className="text-blue-100 mt-2 text-sm">Sistema de Gerenciamento Técnico</p>
+          </div>
+          <form onSubmit={handleLogin} className="p-8 space-y-6">
+            <div>
+              <label className="block text-sm font-semibold text-gray-700 mb-2">Usuário</label>
+              <div className="relative">
+                <span className="absolute inset-y-0 left-0 pl-3 flex items-center text-gray-400">
+                  <Icons.Users />
+                </span>
+                <input 
+                  type="text" 
+                  required
+                  className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition"
+                  placeholder="Seu usuário"
+                  value={loginForm.username}
+                  onChange={e => setLoginForm({...loginForm, username: e.target.value})}
+                />
+              </div>
+            </div>
+            <div>
+              <label className="block text-sm font-semibold text-gray-700 mb-2">Senha</label>
+              <div className="relative">
+                <span className="absolute inset-y-0 left-0 pl-3 flex items-center text-gray-400">
+                  <Icons.Lock />
+                </span>
+                <input 
+                  type="password" 
+                  required
+                  className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition"
+                  placeholder="Sua senha"
+                  value={loginForm.password}
+                  onChange={e => setLoginForm({...loginForm, password: e.target.value})}
+                />
+              </div>
+            </div>
+            {loginError && <p className="text-red-500 text-xs font-medium bg-red-50 p-3 rounded-lg border border-red-100">{loginError}</p>}
+            <button 
+              type="submit" 
+              className="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-4 rounded-xl shadow-lg shadow-blue-200 transition-all active:scale-[0.98]"
+            >
+              Entrar no Sistema
+            </button>
+          </form>
+          <div className="p-4 bg-gray-50 border-t border-gray-100 text-center text-[10px] text-gray-400">
+            Acesso Restrito a Colaboradores Autorizados
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   const renderContent = () => {
     switch (currentView) {
       case 'dashboard':
         return (
           <div className="space-y-6">
-            <h2 className="text-2xl font-bold text-gray-800">Dashboard</h2>
+            <h2 className="text-2xl font-bold text-gray-800">Painel Geral</h2>
             <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
               {[
                 { label: 'Orçamentos Ativos', value: budgets.filter(b => b.status === 'Em andamento').length, color: 'bg-blue-500' },
@@ -443,7 +527,7 @@ export default function App() {
   return (
     <div className="min-h-screen flex flex-col md:flex-row">
       {/* Sidebar - Hidden during print */}
-      <aside className={`no-print bg-slate-900 text-white w-full md:w-64 flex-shrink-0 transition-all duration-300 ${isSidebarOpen ? 'block' : 'hidden md:block md:w-20'}`}>
+      <aside className={`no-print bg-slate-900 text-white w-full md:w-64 flex-shrink-0 flex flex-col transition-all duration-300 ${isSidebarOpen ? 'block' : 'hidden md:block md:w-20'}`}>
         <div className="p-6 flex items-center justify-between">
           <h1 className={`font-bold text-xl tracking-tight transition-all ${!isSidebarOpen && 'md:opacity-0'}`}>
             Assistência<span className="text-blue-400">Pro</span>
@@ -453,7 +537,7 @@ export default function App() {
           </button>
         </div>
         
-        <nav className="mt-6 px-4 space-y-2">
+        <nav className="mt-6 px-4 space-y-2 flex-1">
           {navItems.map((item) => (
             <button
               key={item.id}
@@ -467,10 +551,20 @@ export default function App() {
             </button>
           ))}
         </nav>
+
+        <div className="p-4 border-t border-slate-800">
+          <button 
+            onClick={handleLogout}
+            className="w-full flex items-center gap-3 p-3 rounded-lg text-red-400 hover:bg-red-500/10 hover:text-red-300 transition-colors"
+          >
+            <Icons.Logout />
+            <span className={`${!isSidebarOpen && 'md:hidden'}`}>Sair</span>
+          </button>
+        </div>
       </aside>
 
       {/* Main Content Area */}
-      <main className="flex-1 p-4 md:p-8 no-print">
+      <main className="flex-1 p-4 md:p-8 no-print overflow-y-auto">
         {renderContent()}
       </main>
 
